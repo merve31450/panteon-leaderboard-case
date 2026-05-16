@@ -39,12 +39,21 @@ export function getPlayerLeaderboardContextController(
   });
 }
 export async function seedLeaderboardController(_req: Request, res: Response) {
-  const result = await seedLeaderboardToRedis();
+  try {
+    const result = await seedLeaderboardToRedis();
 
-  return res.status(201).json({
-    success: true,
-    data: result
-  });
+    return res.status(201).json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    console.error("Failed to seed Redis leaderboard:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to seed leaderboard"
+    });
+  }
 }
 
 export async function getTopLeaderboardFromRedisController(

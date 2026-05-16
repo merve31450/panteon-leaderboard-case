@@ -114,14 +114,28 @@ export function getPlayerLeaderboardContext(playerId: string) {
   };
 }
 export async function seedLeaderboardToRedis() {
-  await redis.del(WEEKLY_LEADERBOARD_KEY);
+  const pipeline = redis.pipeline();
+
+  pipeline.del(WEEKLY_LEADERBOARD_KEY);
 
   for (const player of leaderboard) {
-    await redis.zadd(
+    pipeline.zadd(
       WEEKLY_LEADERBOARD_KEY,
       player.score,
       player.playerId
     );
+  }
+
+  const results = await pipeline.exec();
+
+  if (!results) {
+    throw new Error("Redis pipeline did not return seed results");
+  }
+
+  const failedCommand = results.find(([error]) => error !== null);
+
+  if (failedCommand) {
+    throw failedCommand[0];
   }
 
   return {

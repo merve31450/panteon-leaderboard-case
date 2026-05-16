@@ -1,7 +1,8 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { FormEvent } from 'react'
+import { API_BASE_URL } from './config/api'
 import './App.css'
 
-const API_BASE_URL = 'http://localhost:4000'
 const SELECTED_PLAYER_ID = 'player-6'
 
 type LeaderboardPlayer = {
