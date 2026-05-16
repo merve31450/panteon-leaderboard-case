@@ -1,6 +1,6 @@
 # Panteon Leaderboard Case
 
-A full-stack leaderboard case study with a TypeScript Express backend, Redis-backed weekly ranking, reward preview logic, and a React + Vite dashboard for inspecting and simulating earnings.
+A full-stack leaderboard case study with a TypeScript Express backend, Redis-backed weekly ranking, Redis-based reward preview logic, and a React + Vite dashboard for inspecting and simulating earnings.
 
 ## What It Does
 
@@ -8,7 +8,7 @@ A full-stack leaderboard case study with a TypeScript Express backend, Redis-bac
 - Stores the Redis leaderboard in a Sorted Set for efficient rank and score queries.
 - Accepts earning submissions and increments the player's Redis leaderboard score.
 - Calculates a 2% prize pool contribution from earnings.
-- Provides a weekly reward preview based on leaderboard rank.
+- Provides a weekly reward preview from Redis leaderboard data.
 - Includes a frontend dashboard for leaderboard, selected player context, rewards, and earning simulation.
 
 ## Tech Stack
@@ -26,7 +26,7 @@ The backend is organized into feature modules under `server/src/modules`:
 - `players`: exposes mock player data and player lookup endpoints.
 - `leaderboard`: manages mock leaderboard data, Redis seeding, Redis leaderboard reads, and player rank context.
 - `earnings`: validates earning submissions, calculates contribution/net amount, and increments Redis leaderboard score.
-- `rewards`: calculates weekly prize pool and reward preview from leaderboard standings.
+- `rewards`: calculates weekly prize pool and reward preview from Redis leaderboard standings.
 
 ## Redis Leaderboard
 
@@ -45,16 +45,30 @@ Main Redis operations:
 - `ZREVRANK`: finds a player's rank.
 - `ZINCRBY`: increments a player's score after a valid earning submission.
 
-## Prize Pool Logic
+## Earning Flow
 
-Each earning contributes 2% to the prize pool:
+`POST /api/earnings` validates the submitted `playerId` and `amount`, calculates the prize pool contribution, and updates the Redis leaderboard score with `ZINCRBY`.
+
+Each valid earning contributes 2% to the prize pool:
 
 ```text
 prizePoolContribution = earningAmount * 0.02
 netAmount = earningAmount - prizePoolContribution
 ```
 
-The weekly reward preview calculates a mock weekly prize pool from leaderboard scores:
+The response includes:
+
+- `playerId`
+- `earningAmount`
+- `prizePoolContribution`
+- `netAmount`
+- `updatedScore`
+
+## Reward Preview Flow
+
+`GET /api/rewards/weekly-preview` reads the top 100 players from Redis using the leaderboard service and calculates the weekly reward preview from those Redis scores.
+
+The reward distribution is:
 
 - 1st place: 20%
 - 2nd place: 15%
@@ -148,7 +162,7 @@ http://localhost:4000
 
 ### Rewards
 
-- `GET /api/rewards/weekly-preview`: returns weekly prize pool and reward preview.
+- `GET /api/rewards/weekly-preview`: returns weekly prize pool and reward preview calculated from Redis leaderboard data.
 
 ## Example Curl Commands
 
@@ -194,7 +208,7 @@ curl http://localhost:4000/api/rewards/weekly-preview
 
 - Player and leaderboard data are mock datasets, not persisted in a database.
 - Redis stores leaderboard scores only; player metadata comes from the mock leaderboard data.
-- The reward preview currently treats leaderboard score as weekly earning for calculation purposes.
+- The reward preview treats Redis leaderboard score as weekly earning for calculation purposes.
 - Earning submissions update Redis leaderboard scores but are not stored as transaction history.
-- Redis leaderboard endpoints require Redis to be running and seeded.
+- Redis leaderboard and reward preview endpoints require Redis to be running and seeded.
 - Authentication, authorization, pagination, and production observability are outside the current scope.
