@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { createEarning } from "./earnings.service";
 
-export function createEarningController(req: Request, res: Response) {
+export async function createEarningController(req: Request, res: Response) {
   const { playerId, amount } = req.body;
 
   if (!playerId || typeof playerId !== "string") {
@@ -18,7 +18,7 @@ export function createEarningController(req: Request, res: Response) {
     });
   }
 
-  const earning = createEarning(playerId, amount);
+  const earning = await createEarning(playerId, amount);
 
   return res.status(201).json({
     success: true,
