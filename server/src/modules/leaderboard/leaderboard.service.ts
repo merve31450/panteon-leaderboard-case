@@ -42,6 +42,41 @@ const leaderboard: LeaderboardPlayer[] = [
     username: "NightWolf",
     country: "FR",
     score: 7600
+  },
+  {
+    rank: 6,
+    playerId: "player-6",
+    username: "StormBreaker",
+    country: "ES",
+    score: 7100
+  },
+  {
+    rank: 7,
+    playerId: "player-7",
+    username: "BladeRunner",
+    country: "IT",
+    score: 6600
+  },
+  {
+    rank: 8,
+    playerId: "player-8",
+    username: "FrostByte",
+    country: "NL",
+    score: 6100
+  },
+  {
+    rank: 9,
+    playerId: "player-9",
+    username: "StarForge",
+    country: "BR",
+    score: 5600
+  },
+  {
+    rank: 10,
+    playerId: "player-10",
+    username: "MoonRider",
+    country: "JP",
+    score: 5100
   }
 ];
 
