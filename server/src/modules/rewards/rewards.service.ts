@@ -1,4 +1,4 @@
-import { getTopLeaderboard } from "../leaderboard/leaderboard.service";
+import { getTopLeaderboardFromRedis } from "../leaderboard/leaderboard.service";
 
 type RewardPreviewItem = {
   rank: number;
@@ -9,8 +9,8 @@ type RewardPreviewItem = {
   rewardPercentage: number;
 };
 
-export function getWeeklyRewardPreview() {
-  const leaderboard = getTopLeaderboard(100);
+export async function getWeeklyRewardPreview() {
+  const leaderboard = await getTopLeaderboardFromRedis(100);
 
   // Mock aşamasında score değerini haftalık kazanç gibi kabul ediyoruz.
   // Gerçek sistemde bu bilgi earning transaction kayıtlarından gelecek.

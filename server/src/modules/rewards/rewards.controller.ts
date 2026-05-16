@@ -1,11 +1,11 @@
 import { Request, Response } from "express";
 import { getWeeklyRewardPreview } from "./rewards.service";
 
-export function getWeeklyRewardPreviewController(
+export async function getWeeklyRewardPreviewController(
   _req: Request,
   res: Response
 ) {
-  const rewardPreview = getWeeklyRewardPreview();
+  const rewardPreview = await getWeeklyRewardPreview();
 
   return res.json({
     success: true,
