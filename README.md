@@ -2,6 +2,8 @@
 
 A full-stack leaderboard case study with a TypeScript Express backend, Redis-backed weekly ranking, Redis-based reward preview logic, and a React + Vite dashboard for inspecting and simulating earnings.
 
+This case prototype focuses on the real-time leaderboard flow with Redis. It demonstrates how weekly player scores can be updated and queried quickly while leaving durable financial persistence and production data modeling as planned architecture work.
+
 ## What It Does
 
 - Displays a weekly leaderboard of players ranked by score.
@@ -44,6 +46,14 @@ Main Redis operations:
 - `ZREVRANGE ... WITHSCORES`: reads top players in descending score order.
 - `ZREVRANK`: finds a player's rank.
 - `ZINCRBY`: increments a player's score after a valid earning submission.
+
+## Production Persistence Plan
+
+- Redis is used for real-time weekly leaderboard ranking.
+- PostgreSQL should be used for durable earning transactions, weekly prize pool records, and payout history.
+- MongoDB can be used for player activity logs, player profile snapshots, or denormalized read models.
+- The current implementation keeps sample player metadata in code for demo purposes.
+- See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full production architecture.
 
 ## Earning Flow
 
