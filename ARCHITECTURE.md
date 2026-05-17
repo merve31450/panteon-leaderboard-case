@@ -2,220 +2,201 @@
 
 ## Overview
 
-The Panteon Leaderboard Case is a full-stack prototype for a weekly, earnings-based leaderboard. The current implementation uses a React frontend, a TypeScript Express backend, and Redis Sorted Sets for real-time ranking behavior.
+The Panteon Leaderboard Case is a full-stack prototype for a large-scale game leaderboard. The demo has 10 seeded players only so the app is easy to run locally, but the target production scenario is 10M+ registered players and around 2M daily active users.
 
-In a production system, the backend should remain stateless, Redis should serve the hot leaderboard path, PostgreSQL should own durable financial records, and MongoDB can support flexible activity and read-model workloads.
-
-## Production Architecture
+The production design separates hot leaderboard ranking from durable storage:
 
 ```text
-Frontend
-  -> API Gateway / Load Balancer
-  -> Stateless Backend Instances
+React Client
+  -> Load Balancer / API Gateway
+  -> Stateless Node.js + Express API instances
   -> Redis Sorted Sets for live leaderboard ranking
-  -> PostgreSQL for durable earnings and reward payout history
-  -> MongoDB for activity logs, snapshots, and denormalized read models
+  -> PostgreSQL for players, earning ledger, reward transactions, weekly settlements
+  -> MongoDB for game events, player activity logs, analytics, telemetry
 ```
 
-The backend instances should not store leaderboard, session, or reward state in process memory. Any instance should be able to handle any request, which allows horizontal scaling behind a load balancer.
+## Stateless Backend
 
-## Stateless Backend Design
+The backend should be stateless. No API instance should depend on in-process leaderboard, session, or payout state. Any instance behind the load balancer can handle any request because shared state lives in Redis, PostgreSQL, MongoDB, or an external auth/session service.
 
-The backend should expose HTTP APIs for players, earnings, leaderboard reads, and reward operations. Each request should be handled independently:
+This makes horizontal scaling straightforward:
 
-- Authentication context should come from signed tokens or an external session store.
-- Leaderboard scores should be read from Redis.
-- Durable earning and payout records should be written to PostgreSQL.
-- Activity history and denormalized query models can be written to MongoDB.
-- Scheduled jobs should use distributed locks or queue-based coordination to avoid duplicate weekly resets and payouts.
+- Add more backend instances during traffic peaks.
+- Use Redis for live ranking reads and writes.
+- Use PostgreSQL for durable financial records.
+- Use MongoDB for high-volume activity and analytics documents.
+- Use distributed locks, queues, or scheduled workers for weekly reward distribution.
 
-This keeps backend nodes replaceable and scalable. More instances can be added without data migration or sticky sessions.
+## Redis Sorted Set Design
 
-## Redis Sorted Sets for Real-Time Ranking
+Redis Sorted Sets are the core scalable leaderboard structure. Each player is stored as a member and the weekly earning score is stored as the sorted-set score.
 
-Redis Sorted Sets are a strong fit for real-time leaderboard ranking because they store members with numeric scores and keep them ordered efficiently.
-
-For this case:
-
-- Member: `playerId`
-- Score: weekly earning score
-- Key: `weekly:leaderboard`
-
-Important operations:
-
-- `ZINCRBY weekly:leaderboard <amount> <playerId>` increments a player's weekly score after an earning.
-- `ZREVRANGE weekly:leaderboard 0 99 WITHSCORES` returns the top 100 players.
-- `ZREVRANK weekly:leaderboard <playerId>` returns a player's current rank.
-- `ZREVRANGE weekly:leaderboard <start> <end> WITHSCORES` returns nearby players around a rank.
-
-These operations are fast enough for high-read leaderboard workloads and avoid recalculating ranks from relational tables on every request.
-
-## PostgreSQL Durable Records
-
-PostgreSQL should be the system of record for financial and reward data. Redis leaderboard state is optimized for speed, not long-term durability or auditability.
-
-Recommended PostgreSQL tables include:
-
-- `earning_transactions`: one immutable row per player earning event.
-- `weekly_reward_runs`: one row per weekly reward calculation and distribution run.
-- `reward_payouts`: one row per player reward payout.
-- `players`: canonical player identity and account metadata, if not owned by another service.
-
-`earning_transactions` should store fields such as:
-
-- `id`
-- `player_id`
-- `amount`
-- `prize_pool_contribution`
-- `net_amount`
-- `week_id`
-- `idempotency_key`
-- `created_at`
-
-`reward_payouts` should store fields such as:
-
-- `id`
-- `week_id`
-- `player_id`
-- `rank`
-- `score`
-- `reward_amount`
-- `reward_percentage`
-- `status`
-- `paid_at`
-- `created_at`
-
-Earning writes should be idempotent. If clients retry a request, the same earning should not be counted twice.
-
-## MongoDB Flexible Read and Activity Storage
-
-MongoDB can complement PostgreSQL by storing flexible, high-volume, or denormalized documents that are useful for product and analytics workflows.
-
-Good MongoDB use cases include:
-
-- Player activity logs, such as login, match, purchase, and earning-related events.
-- Player profile snapshots captured at specific times.
-- Denormalized leaderboard read models enriched with username, avatar, country, level, or segment data.
-- Audit-friendly event documents that are useful for debugging and support tools.
-
-MongoDB should not replace PostgreSQL for financial transaction truth. It is best used for flexible event history and read-optimized documents.
-
-## Redis Weekly Leaderboard Model
-
-The hot leaderboard key can remain:
+Demo key:
 
 ```text
 weekly:leaderboard
 ```
 
-For production, include a week identifier in the key:
+Production key pattern:
 
 ```text
 leaderboard:weekly:<weekId>
 ```
 
-Example:
+Examples:
 
 ```text
 leaderboard:weekly:2026-W20
+leaderboard:weekly:2026-W20:final
+leaderboard:weekly:current
 ```
 
-This allows the system to keep current and previous leaderboards separately. Redis can also keep helper keys such as:
+Redis is suitable for large-scale leaderboard ranking because it keeps members ordered by score and supports rank and range reads without sorting relational rows on each request. It is especially effective for hot data such as the active weekly leaderboard.
 
-- `leaderboard:weekly:<weekId>` for active scores.
-- `leaderboard:weekly:<weekId>:final` for a frozen final ranking.
-- `leaderboard:weekly:current` for the active week identifier.
+## Redis Operations
 
-Top 100 query:
+Score update after an earning:
 
 ```text
-ZREVRANGE leaderboard:weekly:<weekId> 0 99 WITHSCORES
+ZINCRBY weekly:leaderboard <amount> <playerId>
 ```
 
-Nearby player query:
+Top players:
 
 ```text
-ZREVRANK leaderboard:weekly:<weekId> <playerId>
-ZREVRANGE leaderboard:weekly:<weekId> <rank-3> <rank+3> WITHSCORES
+ZREVRANGE weekly:leaderboard 0 99 WITHSCORES
 ```
 
-Player display metadata should usually come from PostgreSQL, MongoDB read models, or a cache, not from the Redis sorted set itself.
+Player rank:
 
-## Weekly Reset Flow
+```text
+ZREVRANK weekly:leaderboard <playerId>
+```
 
-A production weekly reset should be handled by a scheduled job or worker:
+Nearby players around a rank:
 
-1. Acquire a distributed lock for the target `weekId`.
-2. Stop accepting writes to the closing leaderboard key or route late writes to the correct week by timestamp.
-3. Read the final top 100 from Redis.
-4. Persist the final leaderboard snapshot and reward run metadata.
-5. Calculate rewards from durable earning data in PostgreSQL.
-6. Create `reward_payouts` rows in PostgreSQL with pending status.
-7. Initialize the next week's Redis leaderboard key.
-8. Update `leaderboard:weekly:current`.
-9. Expire or archive old Redis keys after the required retention window.
+```text
+ZREVRANGE weekly:leaderboard <startIndex> <endIndex> WITHSCORES
+```
 
-The reset should be idempotent. Re-running the job for the same `weekId` should not duplicate payouts or mutate already finalized data.
+The API uses descending rank order because higher weekly earning scores should rank higher.
 
-## Reward Distribution Flow
+## Top 100 Behavior
 
-Reward distribution should be separated from leaderboard reads:
+The top leaderboard endpoint reads the first 100 players from Redis using `ZREVRANGE`. For production, this gives a fast global or segmented leaderboard view without scanning all registered players.
 
-1. Calculate the weekly prize pool from PostgreSQL earning transactions.
-2. Load the finalized top 100 ranking from Redis or a persisted leaderboard snapshot.
-3. Apply the reward rule:
-   - Rank 1 receives 20%.
-   - Rank 2 receives 15%.
-   - Rank 3 receives 10%.
-   - Ranks 4-100 share the remaining 55% by rank-based weight.
-4. Persist a `weekly_reward_runs` record.
-5. Persist one `reward_payouts` record per rewarded player.
-6. Send payouts through a payment, wallet, or balance service.
-7. Mark each payout as paid, failed, or retriable.
+If the active leaderboard has fewer than 100 players, Redis returns only the available players. The current demo therefore returns the 10 seeded players after seeding.
 
-The API can expose reward previews, but actual payout execution should run through a controlled backend worker with idempotency and audit logs.
+## Selected Player Context
 
-## Scalability Notes
+The selected player flow uses `ZREVRANK` to find the player's zero-based Redis rank. Then it reads a small range around that rank.
 
-The target scale of 10M registered users and 2M daily active users requires separating hot-path ranking from durable storage.
+The intended behavior is:
 
-Key considerations:
+- selected player
+- 3 players above
+- 2 players below
 
-- Keep leaderboard updates lightweight: write the earning transaction to PostgreSQL and increment Redis with `ZINCRBY`.
-- Use queues for non-critical side effects such as activity logging, profile snapshot updates, notifications, and analytics events.
-- Use read replicas or denormalized MongoDB read models for player profile enrichment.
-- Cache frequently requested player metadata.
-- Use connection pooling for PostgreSQL and Redis.
-- Partition large PostgreSQL tables by `week_id` or time where appropriate.
-- Use idempotency keys for earning submission and reward payout requests.
-- Add rate limiting and abuse detection around earning submission endpoints.
-- Use observability: structured logs, metrics, traces, and alerts for leaderboard lag, failed payouts, Redis latency, and database write errors.
+At the top or bottom of the leaderboard, the range is clamped so the API returns the available nearby players without invalid indexes.
 
-Redis can handle large sorted sets, but memory sizing, persistence configuration, backup strategy, and high availability should be planned carefully. For very large regional or segmented leaderboards, use separate keys by week, region, game mode, or shard.
+## Weekly Prize Pool
 
-## Deployment Suggestion
+Each earning contributes 2% to the weekly prize pool:
 
-A practical managed deployment for this case:
+```text
+prizePoolContribution = earningAmount * 0.02
+netAmount = earningAmount - prizePoolContribution
+```
+
+Reward distribution:
+
+- 1st place gets 20% of the prize pool.
+- 2nd place gets 15%.
+- 3rd place gets 10%.
+- Ranks 4-100 share the remaining 55% based on rank weight.
+
+For ranks 4-100, the demo uses stronger weight for higher ranks:
+
+```text
+weight = 101 - rank
+playerReward = remainingPool * playerWeight / totalWeight
+```
+
+In this demo, Redis leaderboard score is treated as weekly earning so reviewers can test the flow without a full earning ledger. In production, prize-pool totals should be calculated from PostgreSQL earning transactions.
+
+## Weekly Distribution And Reset
+
+The weekly distribution/reset operation should:
+
+1. Acquire a distributed lock for the week.
+2. Read the final top 100 from Redis.
+3. Calculate `totalWeeklyEarning`, `prizePool`, distribution percentages, and player rewards.
+4. Persist the reward run and reward transactions in PostgreSQL.
+5. Reset or rotate the Redis weekly leaderboard key.
+6. Reset the weekly prize pool accumulator.
+7. Initialize the next week's leaderboard.
+
+The demo endpoint `POST /api/rewards/distribute-weekly` performs the Redis-backed calculation, returns the distributed rewards, and resets `weekly:leaderboard` plus `weekly:prize-pool`. Production should persist reward transactions in PostgreSQL before resetting Redis so payouts are auditable and retryable.
+
+## PostgreSQL Role
+
+PostgreSQL should be the durable system of record for financial and settlement data:
+
+- `players`: canonical player identity, account status, country, display name references
+- `earning_transactions`: immutable earning ledger rows
+- `reward_transactions`: one row per calculated player reward
+- `weekly_settlements`: weekly run status, totals, timestamps, operator/job metadata
+- idempotency keys for earning submission and reward payout requests
+
+PostgreSQL is the right place for data that needs transactions, constraints, audit history, reconciliation, and reliable settlement status.
+
+## MongoDB Role
+
+MongoDB should support flexible, high-volume product and analytics data:
+
+- game events
+- player activity logs
+- match/session telemetry
+- analytics events
+- support/debugging event documents
+- denormalized player activity snapshots
+
+MongoDB should not replace PostgreSQL for financial truth. It complements the relational store by handling flexible event documents and analytics-oriented records.
+
+## Scaling Notes For 10M+ Players And 2M DAU
+
+At this scale, the system should keep hot paths small and predictable:
+
+- Use Redis Sorted Sets for active weekly ranking.
+- Use `ZINCRBY` for score updates instead of recalculating ranks.
+- Use `ZREVRANGE` for top 100 and nearby-player reads.
+- Keep leaderboard keys segmented by week, region, game mode, or shard if needed.
+- Write immutable earning rows to PostgreSQL with idempotency keys.
+- Use queues for side effects such as analytics, notifications, and activity logs.
+- Cache player display metadata or use denormalized MongoDB read models.
+- Add PostgreSQL connection pooling and partition large tables by `week_id` or time.
+- Monitor Redis memory, latency, persistence, replication, and failover.
+- Add rate limiting and abuse detection to earning submission endpoints.
+- Run weekly distribution as a controlled worker or cron job with locking and retries.
+
+Redis can handle very large sorted sets when memory and key design are planned carefully. For a 2M DAU game, the active weekly board should be sized, monitored, and possibly split by region or mode depending on traffic and product requirements.
+
+## Deployment
+
+Recommended managed deployment for this case:
 
 - Frontend: Vercel
-- Backend: Render or Railway
+- Backend API: Render
 - Redis: Upstash Redis
-- PostgreSQL: managed PostgreSQL from Neon, Supabase, Render, Railway, AWS RDS, or similar
+- PostgreSQL: Neon, Supabase, Render PostgreSQL, AWS RDS, or similar
 - MongoDB: MongoDB Atlas
 
-The backend should be deployed as multiple stateless instances when traffic requires it. Scheduled weekly jobs can run as a separate worker process or managed cron job.
+The backend should stay stateless on Render. Vercel should point the React client at the Render API URL. Upstash Redis should be configured through `REDIS_URL`, with no secrets committed to the repository.
 
-## Current Prototype Limitations
+## Current Prototype Limits
 
-The current repository is intentionally scoped as a case prototype:
-
-- Player and leaderboard data are mock datasets.
-- Redis stores weekly scores, but durable PostgreSQL earning history is not implemented.
-- Reward payout history is not persisted.
-- MongoDB activity logs, player snapshots, and denormalized read models are not implemented.
-- The reward preview currently derives weekly earnings from Redis scores.
-- There is no authentication, authorization, idempotency, queue, or distributed lock.
-- Weekly reset and actual payout execution are not implemented.
-- The frontend is a dashboard for demonstration rather than a production player-facing product.
-
-These limitations are acceptable for demonstrating the leaderboard mechanics, but production use would require durable transaction storage, payout auditing, operational safeguards, and stronger reliability guarantees.
+- The repository contains only 10 demo players.
+- PostgreSQL and MongoDB are architecture notes, not active demo persistence.
+- Redis stores live leaderboard score and a demo prize-pool accumulator.
+- The weekly distribution endpoint resets Redis state but does not execute real payments.
+- Authentication, authorization, rate limiting, queue workers, and observability are not implemented in the demo.

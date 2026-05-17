@@ -6,7 +6,8 @@ export type LeaderboardPlayer = {
   country: string;
   score: number;
 };
-const WEEKLY_LEADERBOARD_KEY = "weekly:leaderboard";
+export const WEEKLY_LEADERBOARD_KEY = "weekly:leaderboard";
+export const WEEKLY_PRIZE_POOL_KEY = "weekly:prize-pool";
 const leaderboard: LeaderboardPlayer[] = [
   {
     rank: 1,
