@@ -4,6 +4,11 @@ import {
   WEEKLY_LEADERBOARD_KEY,
   WEEKLY_PRIZE_POOL_KEY
 } from "../leaderboard/leaderboard.service";
+import {
+  recordGameEvent,
+  recordRewardDistribution,
+  recordWeeklySettlement
+} from "../persistence/persistence.service";
 
 type RewardPreviewItem = {
   rank: number;
@@ -113,6 +118,25 @@ export async function distributeWeeklyRewards() {
 
   try {
     const distribution = await getWeeklyRewardPreview();
+    const distributedAt = new Date().toISOString();
+    const distributedRewards = {
+      ...distribution,
+      distributedAt,
+      reset: {
+        weeklyLeaderboard: false,
+        prizePool: false
+      }
+    };
+
+    await recordRewardDistribution(distributedRewards);
+    await recordGameEvent({
+      type: "weekly_rewards_distributed",
+      weekId: distribution.weekId,
+      prizePool: distribution.prizePool,
+      rewardCount: distribution.rewards.length,
+      distributedAt
+    });
+
     const pipeline = redis.pipeline();
 
     pipeline.del(WEEKLY_LEADERBOARD_KEY);
@@ -130,13 +154,30 @@ export async function distributeWeeklyRewards() {
       throw failedCommand[0];
     }
 
-    return {
-      ...distribution,
-      distributedAt: new Date().toISOString(),
+    const settlement = {
+      weekId: distribution.weekId,
+      status: "settled",
+      totalWeeklyEarning: distribution.totalWeeklyEarning,
+      prizePool: distribution.prizePool,
+      rewardCount: distribution.rewards.length,
+      settledAt: new Date().toISOString(),
       reset: {
         weeklyLeaderboard: true,
         prizePool: true
       }
+    };
+
+    await recordWeeklySettlement(settlement);
+    await recordGameEvent({
+      type: "weekly_leaderboard_reset",
+      weekId: distribution.weekId,
+      settledAt: settlement.settledAt,
+      reset: settlement.reset
+    });
+
+    return {
+      ...distributedRewards,
+      reset: settlement.reset
     };
   } finally {
     const currentToken = await redis.get(WEEKLY_REWARD_DISTRIBUTION_LOCK_KEY);

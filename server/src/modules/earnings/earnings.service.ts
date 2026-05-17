@@ -3,6 +3,10 @@ import {
   WEEKLY_LEADERBOARD_KEY,
   WEEKLY_PRIZE_POOL_KEY
 } from "../leaderboard/leaderboard.service";
+import {
+  recordEarningLedger,
+  recordGameEvent
+} from "../persistence/persistence.service";
 
 export type EarningResult = {
   playerId: string;
@@ -37,11 +41,27 @@ export async function createEarning(
 
   const updatedScore = Number(results[0][1]);
 
-  return {
+  const earning = {
     playerId,
     earningAmount: amount,
     prizePoolContribution,
     netAmount,
     updatedScore
   };
+
+  await recordEarningLedger({
+    ...earning,
+    occurredAt: new Date().toISOString()
+  });
+
+  await recordGameEvent({
+    type: "earning_recorded",
+    playerId,
+    amount,
+    prizePoolContribution,
+    netAmount,
+    updatedScore
+  });
+
+  return earning;
 }

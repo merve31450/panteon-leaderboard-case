@@ -14,8 +14,8 @@ The 10 seeded players in this repository are demo seed data only. They exist so 
 - Backend: Node.js, Express, TypeScript
 - Frontend: React, TypeScript, Vite
 - Real-time ranking: Redis Sorted Sets via ioredis
-- Production relational store: PostgreSQL for players, earning ledger, reward transactions, and weekly settlements
-- Production document/event store: MongoDB for game events, player activity logs, analytics, and telemetry
+- Optional production relational adapter: PostgreSQL via `pg` for players, earning ledger, reward transactions, and weekly settlements
+- Optional production document/event adapter: MongoDB via `mongodb` for game events, player activity logs, analytics, and telemetry
 - Deployment: Render for API, Vercel for client, Upstash Redis for managed Redis
 
 ## What It Does
@@ -26,6 +26,7 @@ The 10 seeded players in this repository are demo seed data only. They exist so 
 - Calculates a 2% weekly prize pool from Redis leaderboard data in the demo.
 - Previews weekly reward distribution without changing state.
 - Distributes weekly rewards and resets the weekly Redis leaderboard/prize pool.
+- Optionally records durable production persistence data when PostgreSQL and MongoDB URLs are configured.
 - Shows selected player context with the selected player, 3 players above, and 2 players below.
 
 ## Local Setup
@@ -56,7 +57,12 @@ Backend environment values can be placed in `server/.env` or configured by the h
 PORT=4000
 CLIENT_URL=http://localhost:5173
 REDIS_URL=redis://localhost:6379
+DATABASE_URL=
+MONGODB_URI=
+MONGODB_DB_NAME=panteon_leaderboard
 ```
+
+`DATABASE_URL`, `MONGODB_URI`, and `MONGODB_DB_NAME` are optional in this demo. If PostgreSQL or MongoDB are not configured, the API continues to run with Redis leaderboard behavior and safely skips production persistence writes.
 
 Run the frontend:
 
@@ -78,6 +84,7 @@ Health:
 
 ```bash
 curl http://localhost:4000/health
+curl http://localhost:4000/api/system/stack
 ```
 
 Players:
@@ -121,6 +128,7 @@ Production API examples:
 
 ```bash
 curl https://panteon-leaderboard-case-3.onrender.com/health
+curl https://panteon-leaderboard-case-3.onrender.com/api/system/stack
 curl https://panteon-leaderboard-case-3.onrender.com/api/leaderboard/redis/top
 curl https://panteon-leaderboard-case-3.onrender.com/api/rewards/weekly-preview
 ```
@@ -161,7 +169,7 @@ Upstash Redis:
 
 ## Production Data Architecture
 
-Redis is the hot-path ranking store. It is used for fast leaderboard updates and reads, not as the only durable source of truth.
+Redis is the hot-path ranking store. It remains responsible for real-time leaderboard ranking because sorted-set operations keep score updates, top 100 reads, and rank lookups fast. PostgreSQL and MongoDB are optional production persistence adapters in this demo; missing database URLs do not stop local development.
 
 PostgreSQL should store durable, auditable records:
 
@@ -179,6 +187,15 @@ MongoDB should store flexible high-volume documents:
 - telemetry
 - denormalized player or leaderboard read models
 
+The current server includes safe persistence adapter methods:
+
+- `recordEarningLedger(...)`
+- `recordRewardDistribution(...)`
+- `recordWeeklySettlement(...)`
+- `recordGameEvent(...)`
+
+When `DATABASE_URL` is configured, PostgreSQL writes are attempted for earning ledger, reward distribution, and weekly settlement records. When `MONGODB_URI` is configured, game/activity events are inserted into MongoDB. If either database is not configured or a write fails, the API logs a short message and preserves the existing Redis-backed response flow.
+
 ## Requirement Coverage
 
 | Requirement | Coverage |
@@ -194,6 +211,9 @@ MongoDB should store flexible high-volume documents:
 | Selected player context | Redis context endpoint returns selected player with nearby ranks |
 | Weekly reward preview | `GET /api/rewards/weekly-preview` |
 | Weekly reward distribution/reset | `POST /api/rewards/distribute-weekly` |
+| Optional PostgreSQL persistence adapter | `server/src/db/postgres.ts` and persistence service |
+| Optional MongoDB persistence adapter | `server/src/db/mongo.ts` and persistence service |
+| Stack status endpoint | `GET /api/system/stack` |
 | PostgreSQL production role | Documented as durable financial and settlement store |
 | MongoDB production role | Documented as event, activity, analytics, and telemetry store |
 | Deployment notes | Render, Vercel, and Upstash Redis documented |
@@ -204,6 +224,7 @@ MongoDB should store flexible high-volume documents:
 - The seeded 10 players are sample data only.
 - Player metadata is in code for demo simplicity.
 - PostgreSQL and MongoDB are documented as intended production architecture, not active persistence in this demo.
+- PostgreSQL and MongoDB adapters are optional and require production tables/collections to be provisioned by the deployment environment.
 - Reward payout execution is represented by the distribution response; production would write reward transactions and settlement records to PostgreSQL.
 - Authentication, authorization, rate limiting, queues, and observability are outside this demo scope.
 

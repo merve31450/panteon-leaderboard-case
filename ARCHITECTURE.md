@@ -15,6 +15,8 @@ React Client
   -> MongoDB for game events, player activity logs, analytics, telemetry
 ```
 
+Redis remains the ranking engine even when PostgreSQL and MongoDB are configured. The databases add durability and analytics support, while Redis keeps rank updates and reads fast enough for the live leaderboard path.
+
 ## Stateless Backend
 
 The backend should be stateless. No API instance should depend on in-process leaderboard, session, or payout state. Any instance behind the load balancer can handle any request because shared state lives in Redis, PostgreSQL, MongoDB, or an external auth/session service.
@@ -23,8 +25,8 @@ This makes horizontal scaling straightforward:
 
 - Add more backend instances during traffic peaks.
 - Use Redis for live ranking reads and writes.
-- Use PostgreSQL for durable financial records.
-- Use MongoDB for high-volume activity and analytics documents.
+- Use PostgreSQL for durable financial records through optional production persistence adapters.
+- Use MongoDB for high-volume activity and analytics documents through optional event adapters.
 - Use distributed locks, queues, or scheduled workers for weekly reward distribution.
 
 ## Redis Sorted Set Design
@@ -150,6 +152,8 @@ PostgreSQL should be the durable system of record for financial and settlement d
 
 PostgreSQL is the right place for data that needs transactions, constraints, audit history, reconciliation, and reliable settlement status.
 
+In this demo, PostgreSQL is optional. If `DATABASE_URL` is missing, the application keeps running and persistence methods no-op safely. If it is configured, the persistence layer attempts to record earning ledger rows, reward distribution payloads, and weekly settlement payloads. A failed PostgreSQL write is logged but does not break the Redis leaderboard API response.
+
 ## MongoDB Role
 
 MongoDB should support flexible, high-volume product and analytics data:
@@ -162,6 +166,26 @@ MongoDB should support flexible, high-volume product and analytics data:
 - denormalized player activity snapshots
 
 MongoDB should not replace PostgreSQL for financial truth. It complements the relational store by handling flexible event documents and analytics-oriented records.
+
+In this demo, MongoDB is optional. If `MONGODB_URI` is missing, event logging is skipped safely. If it is configured, the persistence layer writes game and activity events to the `game_events` collection in `MONGODB_DB_NAME`, which defaults to `panteon_leaderboard`.
+
+## Safe Optional Persistence
+
+The server exposes optional persistence helpers:
+
+- `isPostgresConfigured()`
+- `queryPostgres(...)`
+- `isMongoConfigured()`
+- `getMongoDb()`
+
+The production persistence service wraps those helpers with safe methods:
+
+- `recordEarningLedger(entry)`
+- `recordRewardDistribution(distribution)`
+- `recordWeeklySettlement(settlement)`
+- `recordGameEvent(event)`
+
+These methods are best-effort in the demo. Missing URLs, unavailable databases, or missing production tables do not stop Redis leaderboard updates, reward previews, or weekly distribution responses. In production, the same adapters should be paired with migrations, table constraints, idempotency keys, retries, and monitoring.
 
 ## Scaling Notes For 10M+ Players And 2M DAU
 
@@ -179,6 +203,8 @@ At this scale, the system should keep hot paths small and predictable:
 - Add rate limiting and abuse detection to earning submission endpoints.
 - Run weekly distribution as a controlled worker or cron job with locking and retries.
 
+The current API also exposes `GET /api/system/stack` so operators can verify whether PostgreSQL and MongoDB persistence adapters are configured without exposing secret connection strings.
+
 Redis can handle very large sorted sets when memory and key design are planned carefully. For a 2M DAU game, the active weekly board should be sized, monitored, and possibly split by region or mode depending on traffic and product requirements.
 
 ## Deployment
@@ -193,10 +219,18 @@ Recommended managed deployment for this case:
 
 The backend should stay stateless on Render. Vercel should point the React client at the Render API URL. Upstash Redis should be configured through `REDIS_URL`, with no secrets committed to the repository.
 
+Optional production environment variables:
+
+```text
+DATABASE_URL=
+MONGODB_URI=
+MONGODB_DB_NAME=panteon_leaderboard
+```
+
 ## Current Prototype Limits
 
 - The repository contains only 10 demo players.
-- PostgreSQL and MongoDB are architecture notes, not active demo persistence.
+- PostgreSQL and MongoDB are optional production persistence adapters; local development works without their URLs.
 - Redis stores live leaderboard score and a demo prize-pool accumulator.
 - The weekly distribution endpoint resets Redis state but does not execute real payments.
 - Authentication, authorization, rate limiting, queue workers, and observability are not implemented in the demo.
