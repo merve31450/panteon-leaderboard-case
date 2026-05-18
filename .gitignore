@@ -5,4 +5,4 @@ server/.env
 server/src/.env
 .DS_Store
 client/.vite/
-.vite/
+.vite/server/.envtype
