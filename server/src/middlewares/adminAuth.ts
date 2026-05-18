@@ -4,7 +4,9 @@ import { env } from "../config/env";
 let hasLoggedDisabledGuard = false;
 
 export function adminAuth(req: Request, res: Response, next: NextFunction) {
-  if (!env.adminApiKey) {
+  const configuredKey = env.adminApiKey?.trim();
+
+  if (!configuredKey) {
     if (!hasLoggedDisabledGuard) {
       console.log("Admin API key guard is disabled because ADMIN_API_KEY is not configured.");
       hasLoggedDisabledGuard = true;
@@ -14,9 +16,9 @@ export function adminAuth(req: Request, res: Response, next: NextFunction) {
     return;
   }
 
-  const providedApiKey = req.header("x-admin-api-key");
+  const providedKey = req.header("x-admin-api-key")?.trim();
 
-  if (providedApiKey !== env.adminApiKey) {
+  if (!providedKey || providedKey !== configuredKey) {
     res.status(401).json({
       success: false,
       message: "Unauthorized admin request"
