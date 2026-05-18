@@ -1,4 +1,4 @@
-type StatCardProps = {
+export type StatCardProps = {
   label: string
   value: string
 }

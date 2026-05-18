@@ -5,7 +5,7 @@ import type {
 } from '../types'
 import { formatNumber } from '../utils/format'
 
-type EarningFormProps = {
+export type EarningFormProps = {
   amount: string
   isSubmitting: boolean
   lastEarning: EarningResult | null

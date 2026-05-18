@@ -1,7 +1,7 @@
 import type { RewardPreview as RewardPreviewData } from '../types'
 import { formatMoney } from '../utils/format'
 
-type RewardPreviewProps = {
+export type RewardPreviewProps = {
   rewardPreview: RewardPreviewData | null
 }
 

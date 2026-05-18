@@ -66,7 +66,7 @@ Local Docker Compose environment values:
 
 ```text
 REDIS_URL=redis://localhost:6379
-DATABASE_URL=postgresql://panteon:panteon@localhost:5432/panteon_leaderboard
+DATABASE_URL=postgresql://panteon:panteon@localhost:5433/panteon_leaderboard
 MONGODB_URI=mongodb://localhost:27017
 MONGODB_DB_NAME=panteon_leaderboard
 ```

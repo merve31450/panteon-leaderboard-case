@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { EarningForm } from './components/EarningForm'
-import { FiltersBar } from './components/FiltersBar'
-import { LeaderboardTable } from './components/LeaderboardTable'
-import { NearbyPlayers } from './components/NearbyPlayers'
-import { RewardPreview } from './components/RewardPreview'
-import { StatCard } from './components/StatCard'
+import {
+  EarningForm,
+  FiltersBar,
+  LeaderboardTable,
+  NearbyPlayers,
+  RewardPreview,
+  StatCard,
+} from './components'
 import { API_BASE_URL } from './config/api'
 import type {
   ApiResponse,

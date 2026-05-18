@@ -1,7 +1,7 @@
 import type { LeaderboardPlayer } from '../types'
 import { formatNumber } from '../utils/format'
 
-type LeaderboardTableProps = {
+export type LeaderboardTableProps = {
   players: LeaderboardPlayer[]
   totalCount: number
 }

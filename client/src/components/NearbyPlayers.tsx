@@ -1,7 +1,7 @@
 import type { PlayerContext } from '../types'
 import { formatNumber } from '../utils/format'
 
-type NearbyPlayersProps = {
+export type NearbyPlayersProps = {
   context: PlayerContext | null
   selectedPlayerId: string
   isLoading: boolean

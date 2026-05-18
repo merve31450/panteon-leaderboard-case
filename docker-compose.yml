@@ -12,13 +12,13 @@ services:
     image: postgres:16
     container_name: panteon-leaderboard-postgres
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_USER: panteon
       POSTGRES_PASSWORD: panteon
       POSTGRES_DB: panteon_leaderboard
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_panteon_data:/var/lib/postgresql/data
       - ./server/db/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
 
   mongo:
@@ -31,5 +31,5 @@ services:
 
 volumes:
   redis_data:
-  postgres_data:
+  postgres_panteon_data:
   mongo_data:

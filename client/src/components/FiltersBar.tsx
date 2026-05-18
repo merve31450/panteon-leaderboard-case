@@ -1,6 +1,6 @@
 import type { LeaderboardPlayer } from '../types'
 
-type FiltersBarProps = {
+export type FiltersBarProps = {
   countries: string[]
   countryFilter: string
   isPlayerLoading: boolean
