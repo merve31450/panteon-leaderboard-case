@@ -15,6 +15,14 @@ React Client
   -> MongoDB for game events, player activity logs, analytics, telemetry
 ```
 
+Local and production service flow:
+
+```text
+React Client -> Node.js API -> Redis
+                           -> PostgreSQL
+                           -> MongoDB
+```
+
 Redis remains the ranking engine even when PostgreSQL and MongoDB are configured. The databases add durability and analytics support, while Redis keeps rank updates and reads fast enough for the live leaderboard path.
 
 ## Stateless Backend
@@ -145,7 +153,7 @@ The demo endpoint `POST /api/rewards/distribute-weekly` performs the Redis-backe
 PostgreSQL should be the durable system of record for financial and settlement data:
 
 - `players`: canonical player identity, account status, country, display name references
-- `earning_transactions`: immutable earning ledger rows
+- `earning_ledger`: immutable earning ledger rows
 - `reward_transactions`: one row per calculated player reward
 - `weekly_settlements`: weekly run status, totals, timestamps, operator/job metadata
 - idempotency keys for earning submission and reward payout requests
@@ -169,6 +177,8 @@ MongoDB should not replace PostgreSQL for financial truth. It complements the re
 
 In this demo, MongoDB is optional. If `MONGODB_URI` is missing, event logging is skipped safely. If it is configured, the persistence layer writes game and activity events to the `game_events` collection in `MONGODB_DB_NAME`, which defaults to `panteon_leaderboard`.
 
+Local MongoDB collection and index guidance lives in `server/db/mongo-indexes.md`.
+
 ## Safe Optional Persistence
 
 The server exposes optional persistence helpers:
@@ -187,6 +197,8 @@ The production persistence service wraps those helpers with safe methods:
 
 These methods are best-effort in the demo. Missing URLs, unavailable databases, or missing production tables do not stop Redis leaderboard updates, reward previews, or weekly distribution responses. In production, the same adapters should be paired with migrations, table constraints, idempotency keys, retries, and monitoring.
 
+The local PostgreSQL schema is defined in `server/db/schema.sql`. It includes `players`, `earning_ledger`, `reward_distributions`, and `weekly_settlements` with indexes for `player_id`, `week_id`, and `created_at`.
+
 ## Scaling Notes For 10M+ Players And 2M DAU
 
 At this scale, the system should keep hot paths small and predictable:
@@ -194,6 +206,7 @@ At this scale, the system should keep hot paths small and predictable:
 - Use Redis Sorted Sets for active weekly ranking.
 - Use `ZINCRBY` for score updates instead of recalculating ranks.
 - Use `ZREVRANGE` for top 100 and nearby-player reads.
+- Keep the 10 seeded players strictly as demo data; production player volume belongs in PostgreSQL and derived caches/read models.
 - Keep leaderboard keys segmented by week, region, game mode, or shard if needed.
 - Write immutable earning rows to PostgreSQL with idempotency keys.
 - Use queues for side effects such as analytics, notifications, and activity logs.

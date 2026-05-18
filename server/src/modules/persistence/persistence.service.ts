@@ -48,8 +48,8 @@ export async function recordEarningLedger(entry: EarningLedgerEntry) {
   }
 
   await queryPostgres(
-    `INSERT INTO earning_transactions
-      (player_id, amount, prize_pool_contribution, net_amount, updated_score, occurred_at)
+    `INSERT INTO earning_ledger
+      (player_id, amount, prize_pool_contribution, net_amount, updated_score, created_at)
      VALUES ($1, $2, $3, $4, $5, $6)`,
     [
       entry.playerId,

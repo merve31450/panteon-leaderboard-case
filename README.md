@@ -29,7 +29,31 @@ The 10 seeded players in this repository are demo seed data only. They exist so 
 - Optionally records durable production persistence data when PostgreSQL and MongoDB URLs are configured.
 - Shows selected player context with the selected player, 3 players above, and 2 players below.
 
-## Local Setup
+## Run Full Local Infrastructure With Docker Compose
+
+The repository includes a root-level `docker-compose.yml` for local Redis, PostgreSQL, and MongoDB. These credentials are simple local development values only and must not be reused in production.
+
+```bash
+docker compose up -d
+docker compose ps
+```
+
+Stop the local infrastructure:
+
+```bash
+docker compose down
+```
+
+Redis is required for the leaderboard because it is the real-time ranking engine. PostgreSQL and MongoDB are optional persistence layers in this demo; they are included in Docker Compose because they are part of the intended production stack.
+
+Local Docker Compose environment values:
+
+```text
+REDIS_URL=redis://localhost:6379
+DATABASE_URL=postgresql://panteon:panteon@localhost:5432/panteon_leaderboard
+MONGODB_URI=mongodb://localhost:27017
+MONGODB_DB_NAME=panteon_leaderboard
+```
 
 Run Redis locally:
 
@@ -85,6 +109,21 @@ Health:
 ```bash
 curl http://localhost:4000/health
 curl http://localhost:4000/api/system/stack
+```
+
+`GET /api/system/stack` reports which infrastructure parts are configured:
+
+```json
+{
+  "success": true,
+  "data": {
+    "node": true,
+    "redis": true,
+    "postgresConfigured": true,
+    "mongoConfigured": true,
+    "leaderboardEngine": "redis-sorted-set"
+  }
+}
 ```
 
 Players:
@@ -196,6 +235,31 @@ The current server includes safe persistence adapter methods:
 
 When `DATABASE_URL` is configured, PostgreSQL writes are attempted for earning ledger, reward distribution, and weekly settlement records. When `MONGODB_URI` is configured, game/activity events are inserted into MongoDB. If either database is not configured or a write fails, the API logs a short message and preserves the existing Redis-backed response flow.
 
+## Database Schema
+
+PostgreSQL schema file:
+
+```text
+server/db/schema.sql
+```
+
+It defines:
+
+- `players`
+- `earning_ledger`
+- `reward_distributions`
+- `weekly_settlements`
+
+The schema includes IDs, player fields, username fields where useful, amount fields, `week_id`, timestamps, and indexes for `player_id`, `week_id`, and `created_at`. Docker Compose mounts this file into the PostgreSQL container init directory, so it is applied when the local database volume is first created.
+
+MongoDB index guidance:
+
+```text
+server/db/mongo-indexes.md
+```
+
+It documents intended collections for `game_events`, `player_activity_logs`, `leaderboard_events`, and `telemetry_events`, plus suggested indexes for `playerId`, `eventType`, `createdAt`, and `weekId`.
+
 ## Requirement Coverage
 
 | Requirement | Coverage |
@@ -211,6 +275,9 @@ When `DATABASE_URL` is configured, PostgreSQL writes are attempted for earning l
 | Selected player context | Redis context endpoint returns selected player with nearby ranks |
 | Weekly reward preview | `GET /api/rewards/weekly-preview` |
 | Weekly reward distribution/reset | `POST /api/rewards/distribute-weekly` |
+| Local full-stack infrastructure | `docker-compose.yml` |
+| PostgreSQL schema | `server/db/schema.sql` |
+| MongoDB collection/index notes | `server/db/mongo-indexes.md` |
 | Optional PostgreSQL persistence adapter | `server/src/db/postgres.ts` and persistence service |
 | Optional MongoDB persistence adapter | `server/src/db/mongo.ts` and persistence service |
 | Stack status endpoint | `GET /api/system/stack` |
@@ -223,8 +290,8 @@ When `DATABASE_URL` is configured, PostgreSQL writes are attempted for earning l
 
 - The seeded 10 players are sample data only.
 - Player metadata is in code for demo simplicity.
-- PostgreSQL and MongoDB are documented as intended production architecture, not active persistence in this demo.
-- PostgreSQL and MongoDB adapters are optional and require production tables/collections to be provisioned by the deployment environment.
+- PostgreSQL and MongoDB adapters are optional and require database URLs to be configured.
+- Production deployments should provision tables, indexes, retries, idempotency, and monitoring around the provided persistence adapters.
 - Reward payout execution is represented by the distribution response; production would write reward transactions and settlement records to PostgreSQL.
 - Authentication, authorization, rate limiting, queues, and observability are outside this demo scope.
 

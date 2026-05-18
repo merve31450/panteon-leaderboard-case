@@ -8,6 +8,7 @@
 .panel-heading,
 .summary-grid,
 .top-three,
+.controls-panel,
 .content-grid {
   display: grid;
   gap: 16px;
@@ -144,6 +145,14 @@ small {
   align-items: start;
 }
 
+.controls-panel {
+  grid-template-columns: minmax(220px, 1.2fr) minmax(180px, 0.8fr) minmax(
+      240px,
+      1fr
+    );
+  margin-bottom: 18px;
+}
+
 .panel {
   padding: 20px;
 }
@@ -268,9 +277,30 @@ input {
   font: inherit;
 }
 
-input:focus {
+select {
+  min-height: 42px;
+  box-sizing: border-box;
+  border: 1px solid #ccd8d3;
+  border-radius: 8px;
+  padding: 0 36px 0 12px;
+  color: #18211f;
+  background: white;
+  font: inherit;
+}
+
+input:focus,
+select:focus {
   border-color: #1f6f5b;
   outline: 3px solid rgba(31, 111, 91, 0.16);
+}
+
+.empty-state {
+  margin-top: 14px;
+  border-radius: 8px;
+  padding: 14px;
+  background: #f7faf8;
+  color: #6b7b76;
+  font-weight: 700;
 }
 
 .alert {
@@ -304,6 +334,7 @@ input:focus {
   .page-header,
   .summary-grid,
   .top-three,
+  .controls-panel,
   .content-grid,
   .reward-list {
     grid-template-columns: 1fr;
@@ -332,6 +363,11 @@ input:focus {
   .summary-grid article,
   .top-three article {
     padding: 16px;
+  }
+
+  th,
+  td {
+    padding: 11px 10px;
   }
 
   .reward-list div {
