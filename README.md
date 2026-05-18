@@ -7,6 +7,8 @@ Live URLs:
 - Frontend: https://panteon-leaderboard-case.vercel.app
 - Backend API: https://panteon-leaderboard-case-3.onrender.com
 
+Manual smoke testing steps are documented in [TESTING.md](./TESTING.md).
+
 The 10 seeded players in this repository are demo seed data only. They exist so the reviewer can run the app quickly. The intended production scenario is a game with 10M+ registered players and around 2M daily active users.
 
 ## Tech Stack

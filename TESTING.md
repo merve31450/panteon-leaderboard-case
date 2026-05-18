@@ -127,7 +127,7 @@ Expected outcome: demo data is available again for API and frontend checks.
 Live URLs:
 
 - Frontend: https://panteon-leaderboard-case.vercel.app
-- Backend: https://panteon-leaderboard-case-3.onrender.com
+- Backend API: https://panteon-leaderboard-case-3.onrender.com
 
 1. Open the frontend:
 
