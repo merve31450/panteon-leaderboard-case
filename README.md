@@ -29,6 +29,20 @@ The 10 seeded players in this repository are demo seed data only. They exist so 
 - Optionally records durable production persistence data when PostgreSQL and MongoDB URLs are configured.
 - Shows selected player context with the selected player, 3 players above, and 2 players below.
 
+## UI Features
+
+The React dashboard includes discovery features that make the leaderboard easier to explore:
+
+- Search players by username or `playerId`.
+- Filter by country for global comparison.
+- Choose a player from the selected player dropdown.
+- Update selected player rank and nearby players based on the selected player.
+- Preview weekly rewards in the reward preview section.
+- Simulate player earnings with the earning simulation form.
+- Use the same dashboard comfortably on desktop and mobile with a responsive layout.
+
+These UI features address the case requirements around discoverability, global comparison, and letting players quickly see their own rank in context.
+
 ## Run Full Local Infrastructure With Docker Compose
 
 The repository includes a root-level `docker-compose.yml` for local Redis, PostgreSQL, and MongoDB. These credentials are simple local development values only and must not be reused in production.

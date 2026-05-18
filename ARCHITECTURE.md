@@ -25,6 +25,20 @@ React Client -> Node.js API -> Redis
 
 Redis remains the ranking engine even when PostgreSQL and MongoDB are configured. The databases add durability and analytics support, while Redis keeps rank updates and reads fast enough for the live leaderboard path.
 
+## Frontend Architecture
+
+The React client is a thin dashboard over the stateless API. It calls the leaderboard, selected-player context, reward preview, and earning endpoints directly, then keeps only temporary view state such as filters, the selected player, form values, and the latest API responses in React state. It does not store leaderboard state permanently.
+
+The dashboard is organized around reusable React components:
+
+- `StatCard` for summary metrics.
+- `LeaderboardTable` for the searchable and filterable leaderboard view.
+- `NearbyPlayers` for the selected player's rank context.
+- `RewardPreview` for weekly reward distribution preview data.
+- `EarningForm` for earning simulation submissions.
+
+This keeps the frontend focused on discoverability and presentation while Redis, PostgreSQL, MongoDB, and the stateless Node.js API remain responsible for shared system state.
+
 ## Stateless Backend
 
 The backend should be stateless. No API instance should depend on in-process leaderboard, session, or payout state. Any instance behind the load balancer can handle any request because shared state lives in Redis, PostgreSQL, MongoDB, or an external auth/session service.
