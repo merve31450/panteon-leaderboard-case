@@ -1,52 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
+import { EarningForm } from './components/EarningForm'
+import { FiltersBar } from './components/FiltersBar'
+import { LeaderboardTable } from './components/LeaderboardTable'
+import { NearbyPlayers } from './components/NearbyPlayers'
+import { RewardPreview } from './components/RewardPreview'
+import { StatCard } from './components/StatCard'
 import { API_BASE_URL } from './config/api'
+import type {
+  ApiResponse,
+  EarningResult,
+  LeaderboardPlayer,
+  PlayerContext,
+  RewardPreview as RewardPreviewData,
+} from './types'
+import { formatMoney, formatNumber } from './utils/format'
 import './App.css'
 
 const DEFAULT_SELECTED_PLAYER_ID = 'player-6'
-
-type LeaderboardPlayer = {
-  rank: number
-  playerId: string
-  username: string
-  country: string
-  score: number
-}
-
-type PlayerContext = {
-  player?: LeaderboardPlayer
-  nearbyPlayers: LeaderboardPlayer[]
-}
-
-type RewardPreviewItem = {
-  rank: number
-  playerId: string
-  username: string
-  score: number
-  rewardAmount: number
-  rewardPercentage: number
-}
-
-type RewardPreview = {
-  weekId: string
-  totalWeeklyEarning: number
-  prizePool: number
-  rewards: RewardPreviewItem[]
-}
-
-type ApiResponse<T> = {
-  success: boolean
-  data?: T
-  message?: string
-}
-
-type EarningResult = {
-  playerId: string
-  earningAmount: number
-  prizePoolContribution: number
-  netAmount: number
-  updatedScore: number
-}
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -64,18 +35,6 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 
   return payload.data
 }
-
-const formatNumber = (value?: number) =>
-  new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: 2,
-  }).format(value ?? 0)
-
-const formatMoney = (value?: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 2,
-  }).format(value ?? 0)
 
 const getPreferredPlayerId = (
   players: LeaderboardPlayer[],
@@ -97,7 +56,8 @@ const getPreferredPlayerId = (
 function App() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardPlayer[]>([])
   const [playerContext, setPlayerContext] = useState<PlayerContext | null>(null)
-  const [rewardPreview, setRewardPreview] = useState<RewardPreview | null>(null)
+  const [rewardPreview, setRewardPreview] =
+    useState<RewardPreviewData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isPlayerLoading, setIsPlayerLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -143,7 +103,7 @@ function App() {
     try {
       const [topPlayers, preview] = await Promise.all([
         requestJson<LeaderboardPlayer[]>('/api/leaderboard/redis/top'),
-        requestJson<RewardPreview>('/api/rewards/weekly-preview'),
+        requestJson<RewardPreviewData>('/api/rewards/weekly-preview'),
       ])
       const nextSelectedPlayerId = getPreferredPlayerId(
         topPlayers,
@@ -282,49 +242,19 @@ function App() {
             ))}
           </section>
 
-          <section
-            className="controls-panel panel"
-            aria-label="Leaderboard filters"
-          >
-            <label>
-              Search players
-              <input
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Username or player ID"
-              />
-            </label>
-            <label>
-              Country
-              <select
-                value={countryFilter}
-                onChange={(event) => setCountryFilter(event.target.value)}
-              >
-                <option value="all">All countries</option>
-                {countries.map((country) => (
-                  <option key={country} value={country}>
-                    {country}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Selected player
-              <select
-                value={selectedPlayerId}
-                onChange={(event) =>
-                  void handleSelectedPlayerChange(event.target.value)
-                }
-                disabled={isPlayerLoading}
-              >
-                {leaderboard.map((player) => (
-                  <option key={player.playerId} value={player.playerId}>
-                    {player.username} ({player.playerId})
-                  </option>
-                ))}
-              </select>
-            </label>
-          </section>
+          <FiltersBar
+            countries={countries}
+            countryFilter={countryFilter}
+            isPlayerLoading={isPlayerLoading}
+            players={leaderboard}
+            searchTerm={searchTerm}
+            selectedPlayerId={selectedPlayerId}
+            onCountryFilterChange={setCountryFilter}
+            onSearchTermChange={setSearchTerm}
+            onSelectedPlayerChange={(playerId) =>
+              void handleSelectedPlayerChange(playerId)
+            }
+          />
 
           <section className="content-grid">
             <LeaderboardTable
@@ -353,223 +283,10 @@ function App() {
             </aside>
           </section>
 
-          <RewardPreviewSection rewardPreview={rewardPreview} />
+          <RewardPreview rewardPreview={rewardPreview} />
         </>
       )}
     </main>
-  )
-}
-
-type StatCardProps = {
-  label: string
-  value: string
-}
-
-function StatCard({ label, value }: StatCardProps) {
-  return (
-    <article>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </article>
-  )
-}
-
-type LeaderboardTableProps = {
-  players: LeaderboardPlayer[]
-  totalCount: number
-}
-
-function LeaderboardTable({ players, totalCount }: LeaderboardTableProps) {
-  return (
-    <article className="panel leaderboard-panel">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">Redis sorted set</p>
-          <h2>Leaderboard</h2>
-        </div>
-        <span>
-          {players.length} of {totalCount} players
-        </span>
-      </div>
-
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Rank</th>
-              <th>Player</th>
-              <th>Country</th>
-              <th>Score</th>
-            </tr>
-          </thead>
-          <tbody>
-            {players.map((player) => (
-              <tr key={player.playerId}>
-                <td>#{player.rank}</td>
-                <td>
-                  <strong>{player.username}</strong>
-                  <span>{player.playerId}</span>
-                </td>
-                <td>{player.country}</td>
-                <td>{formatNumber(player.score)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {players.length === 0 && (
-          <p className="empty-state">No players match the current filters.</p>
-        )}
-      </div>
-    </article>
-  )
-}
-
-type NearbyPlayersProps = {
-  context: PlayerContext | null
-  selectedPlayerId: string
-  isLoading: boolean
-}
-
-function NearbyPlayers({
-  context,
-  selectedPlayerId,
-  isLoading,
-}: NearbyPlayersProps) {
-  return (
-    <section className="panel">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">Selected player</p>
-          <h2>Nearby Players</h2>
-        </div>
-        <span>{selectedPlayerId}</span>
-      </div>
-
-      <div className="nearby-list">
-        {isLoading && <p className="muted">Loading selected player...</p>}
-        {!isLoading &&
-          context?.nearbyPlayers.map((player) => (
-            <div
-              className={
-                player.playerId === selectedPlayerId
-                  ? 'nearby-player selected'
-                  : 'nearby-player'
-              }
-              key={player.playerId}
-            >
-              <span>#{player.rank}</span>
-              <div>
-                <strong>{player.username}</strong>
-                <small>{player.playerId}</small>
-              </div>
-              <b>{formatNumber(player.score)}</b>
-            </div>
-          ))}
-        {!isLoading && !context?.nearbyPlayers.length && (
-          <p className="empty-state">No nearby players found.</p>
-        )}
-      </div>
-    </section>
-  )
-}
-
-type EarningFormProps = {
-  amount: string
-  isSubmitting: boolean
-  lastEarning: EarningResult | null
-  players: LeaderboardPlayer[]
-  playerId: string
-  submitError: string | null
-  onAmountChange: (amount: string) => void
-  onPlayerIdChange: (playerId: string) => void
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void
-}
-
-function EarningForm({
-  amount,
-  isSubmitting,
-  lastEarning,
-  players,
-  playerId,
-  submitError,
-  onAmountChange,
-  onPlayerIdChange,
-  onSubmit,
-}: EarningFormProps) {
-  return (
-    <section className="panel">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">Simulation</p>
-          <h2>Add Earning</h2>
-        </div>
-      </div>
-
-      <form onSubmit={onSubmit}>
-        <label>
-          Player ID
-          <select
-            value={playerId}
-            onChange={(event) => onPlayerIdChange(event.target.value)}
-          >
-            {players.map((player) => (
-              <option key={player.playerId} value={player.playerId}>
-                {player.username} ({player.playerId})
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Amount
-          <input
-            type="number"
-            min="1"
-            step="0.01"
-            value={amount}
-            onChange={(event) => onAmountChange(event.target.value)}
-          />
-        </label>
-        <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Submitting' : 'Submit earning'}
-        </button>
-      </form>
-
-      {submitError && <div className="alert error">{submitError}</div>}
-      {lastEarning && (
-        <div className="alert success">
-          Updated {lastEarning.playerId} to{' '}
-          {formatNumber(lastEarning.updatedScore)}
-        </div>
-      )}
-    </section>
-  )
-}
-
-type RewardPreviewSectionProps = {
-  rewardPreview: RewardPreview | null
-}
-
-function RewardPreviewSection({ rewardPreview }: RewardPreviewSectionProps) {
-  return (
-    <section className="panel">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">{rewardPreview?.weekId}</p>
-          <h2>Reward Preview</h2>
-        </div>
-      </div>
-
-      <div className="reward-list">
-        {rewardPreview?.rewards.slice(0, 10).map((reward) => (
-          <div key={reward.playerId}>
-            <span>#{reward.rank}</span>
-            <strong>{reward.username}</strong>
-            <small>{reward.rewardPercentage}%</small>
-            <b>{formatMoney(reward.rewardAmount)}</b>
-          </div>
-        ))}
-      </div>
-    </section>
   )
 }
 

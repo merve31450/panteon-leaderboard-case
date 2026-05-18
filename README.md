@@ -98,9 +98,12 @@ REDIS_URL=redis://localhost:6379
 DATABASE_URL=
 MONGODB_URI=
 MONGODB_DB_NAME=panteon_leaderboard
+ADMIN_API_KEY=
 ```
 
 `DATABASE_URL`, `MONGODB_URI`, and `MONGODB_DB_NAME` are optional in this demo. If PostgreSQL or MongoDB are not configured, the API continues to run with Redis leaderboard behavior and safely skips production persistence writes.
+
+`ADMIN_API_KEY` protects internal/demo admin endpoints when configured. If it is not configured, the admin guard is disabled so local setup remains easy.
 
 Run the frontend:
 
@@ -113,7 +116,8 @@ npm run dev
 Seed Redis before testing Redis-backed endpoints:
 
 ```bash
-curl -X POST http://localhost:4000/api/leaderboard/seed
+curl -X POST http://localhost:4000/api/leaderboard/seed \
+  -H "x-admin-api-key: change-me-for-production"
 ```
 
 ## API Endpoints
@@ -152,7 +156,6 @@ Leaderboard:
 ```bash
 curl http://localhost:4000/api/leaderboard/top
 curl http://localhost:4000/api/leaderboard/player/player-6
-curl -X POST http://localhost:4000/api/leaderboard/seed
 curl http://localhost:4000/api/leaderboard/redis/top
 curl http://localhost:4000/api/leaderboard/redis/player/player-6
 ```
@@ -174,8 +177,30 @@ curl http://localhost:4000/api/rewards/weekly-preview
 Distribute weekly rewards and reset weekly Redis state:
 
 ```bash
-curl -X POST http://localhost:4000/api/rewards/distribute-weekly
+curl -X POST http://localhost:4000/api/rewards/distribute-weekly \
+  -H "x-admin-api-key: change-me-for-production"
 ```
+
+## Admin Endpoints
+
+The demo includes internal/admin-like endpoints for seeding Redis and running weekly reward distribution:
+
+- `POST /api/leaderboard/seed`
+- `POST /api/rewards/distribute-weekly`
+
+In production these endpoints should not be publicly callable. Configure `ADMIN_API_KEY` on the server and send it with the `x-admin-api-key` request header:
+
+```bash
+curl -X POST http://localhost:4000/api/leaderboard/seed \
+  -H "x-admin-api-key: change-me-for-production"
+```
+
+```bash
+curl -X POST http://localhost:4000/api/rewards/distribute-weekly \
+  -H "x-admin-api-key: change-me-for-production"
+```
+
+When `ADMIN_API_KEY` is not configured, the guard allows these requests for local/demo convenience.
 
 Production API examples:
 
@@ -310,3 +335,5 @@ It documents intended collections for `game_events`, `player_activity_logs`, `le
 - Authentication, authorization, rate limiting, queues, and observability are outside this demo scope.
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for the detailed production architecture.
+
+See [TESTING.md](./TESTING.md) for manual local and production smoke-test steps.

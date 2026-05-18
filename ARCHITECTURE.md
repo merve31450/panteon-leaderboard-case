@@ -162,6 +162,8 @@ The weekly distribution/reset operation should:
 
 The demo endpoint `POST /api/rewards/distribute-weekly` performs the Redis-backed calculation, returns the distributed rewards, and resets `weekly:leaderboard` plus `weekly:prize-pool`. Production should persist reward transactions in PostgreSQL before resetting Redis so payouts are auditable and retryable.
 
+The seed and distribution endpoints are operational/admin actions, not public gameplay APIs. In production, `POST /api/leaderboard/seed` should be restricted to internal setup workflows, and `POST /api/rewards/distribute-weekly` should be internal or triggered by a trusted scheduler/worker with the admin API key. Public read endpoints and earning submission stay outside this admin guard.
+
 ## PostgreSQL Role
 
 PostgreSQL should be the durable system of record for financial and settlement data:
