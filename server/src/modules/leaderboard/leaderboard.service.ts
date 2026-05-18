@@ -8,6 +8,66 @@ export type LeaderboardPlayer = {
 };
 export const WEEKLY_LEADERBOARD_KEY = "weekly:leaderboard";
 export const WEEKLY_PRIZE_POOL_KEY = "weekly:prize-pool";
+export const DEFAULT_LARGE_SEED_COUNT = 10000;
+export const MAX_LARGE_SEED_COUNT = 100000;
+
+const usernameAdjectives = [
+  "Arcane",
+  "Blazing",
+  "Cosmic",
+  "Crimson",
+  "Electric",
+  "Emerald",
+  "Frozen",
+  "Golden",
+  "Iron",
+  "Lunar",
+  "Mystic",
+  "Neon",
+  "Prime",
+  "Rapid",
+  "Solar",
+  "Storm"
+];
+
+const usernameNouns = [
+  "Archer",
+  "Blade",
+  "Champion",
+  "Comet",
+  "Falcon",
+  "Guardian",
+  "Hunter",
+  "Knight",
+  "Mage",
+  "Nova",
+  "Pilot",
+  "Ranger",
+  "Rider",
+  "Scout",
+  "Striker",
+  "Voyager"
+];
+
+const demoCountries = [
+  "TR",
+  "US",
+  "DE",
+  "GB",
+  "FR",
+  "ES",
+  "IT",
+  "NL",
+  "BR",
+  "JP",
+  "CA",
+  "KR",
+  "PL",
+  "SE",
+  "MX",
+  "AU"
+];
+
 const leaderboard: LeaderboardPlayer[] = [
   {
     rank: 1,
@@ -144,8 +204,99 @@ export async function seedLeaderboardToRedis() {
     totalPlayers: leaderboard.length
   };
 }
+
+function getLargeDemoPlayerNumber(playerId: string) {
+  const match = /^player-(\d+)$/.exec(playerId);
+
+  if (!match) {
+    return null;
+  }
+
+  return Number(match[1]);
+}
+
+function createLargeDemoPlayer(playerNumber: number, rank = playerNumber) {
+  const adjective =
+    usernameAdjectives[(playerNumber - 1) % usernameAdjectives.length];
+  const noun =
+    usernameNouns[
+      Math.floor((playerNumber - 1) / usernameAdjectives.length) %
+        usernameNouns.length
+    ];
+  const country = demoCountries[(playerNumber - 1) % demoCountries.length];
+
+  return {
+    rank,
+    playerId: `player-${playerNumber}`,
+    username: `${adjective}${noun}${playerNumber}`,
+    country,
+    score: getLargeDemoScore(playerNumber)
+  };
+}
+
+function getLargeDemoScore(playerNumber: number) {
+  const baseScore = MAX_LARGE_SEED_COUNT * 10 - playerNumber * 7;
+  const activityWave = (playerNumber % 97) * 13 + (playerNumber % 17) * 29;
+
+  return Math.max(1, baseScore + activityWave);
+}
+
 function getPlayerMetadata(playerId: string) {
-  return leaderboard.find((player) => player.playerId === playerId);
+  const smallDemoPlayer = leaderboard.find((player) => player.playerId === playerId);
+
+  if (smallDemoPlayer) {
+    return smallDemoPlayer;
+  }
+
+  const playerNumber = getLargeDemoPlayerNumber(playerId);
+
+  if (!playerNumber || playerNumber < 1) {
+    return null;
+  }
+
+  return createLargeDemoPlayer(playerNumber);
+}
+
+export async function seedLargeLeaderboardToRedis(count = DEFAULT_LARGE_SEED_COUNT) {
+  if (!Number.isInteger(count) || count < 1 || count > MAX_LARGE_SEED_COUNT) {
+    throw new Error(
+      `count must be an integer between 1 and ${MAX_LARGE_SEED_COUNT}`
+    );
+  }
+
+  await redis.del(WEEKLY_LEADERBOARD_KEY);
+
+  const batchSize = 1000;
+
+  for (let start = 1; start <= count; start += batchSize) {
+    const pipeline = redis.pipeline();
+    const end = Math.min(start + batchSize - 1, count);
+
+    for (let playerNumber = start; playerNumber <= end; playerNumber += 1) {
+      pipeline.zadd(
+        WEEKLY_LEADERBOARD_KEY,
+        getLargeDemoScore(playerNumber),
+        `player-${playerNumber}`
+      );
+    }
+
+    const results = await pipeline.exec();
+
+    if (!results) {
+      throw new Error("Redis pipeline did not return large seed results");
+    }
+
+    const failedCommand = results.find(([error]) => error !== null);
+
+    if (failedCommand) {
+      throw failedCommand[0];
+    }
+  }
+
+  return {
+    message: "Large leaderboard seeded to Redis",
+    totalPlayers: count
+  };
 }
 
 export async function getTopLeaderboardFromRedis(limit = 100) {

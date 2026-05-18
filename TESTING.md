@@ -70,15 +70,24 @@ curl -X POST http://localhost:4000/api/leaderboard/seed \
 
 Expected outcome: `success: true` and Redis is populated with the 10 demo players.
 
-4. Test top 100:
+4. Test large leaderboard seed:
+
+```bash
+curl -X POST "http://localhost:4000/api/leaderboard/seed-large?count=10000" \
+  -H "x-admin-api-key: <ADMIN_API_KEY>"
+```
+
+Expected outcome: `success: true`, `message: "Large leaderboard seeded to Redis"`, and `totalPlayers: 10000`. This replaces the active Redis leaderboard with generated demo players.
+
+5. Test top 100 after large seed:
 
 ```bash
 curl "http://localhost:4000/api/leaderboard/redis/top?limit=100"
 ```
 
-Expected outcome: `success: true` and the available demo players are returned in descending score order.
+Expected outcome: `success: true` and 100 generated demo players are returned in descending score order.
 
-5. Test selected player context:
+6. Test selected player context:
 
 ```bash
 curl http://localhost:4000/api/leaderboard/redis/player/player-6
@@ -86,7 +95,24 @@ curl http://localhost:4000/api/leaderboard/redis/player/player-6
 
 Expected outcome: `success: true`, selected player context is returned for `player-6`, and nearby players are included when available.
 
-6. Test earning update:
+7. Test selected player context outside the top 100:
+
+```bash
+curl http://localhost:4000/api/leaderboard/redis/player/player-5000
+```
+
+Expected outcome: `success: true`, selected player context is returned for `player-5000`, and nearby ranks around that player are included without loading the full leaderboard into the UI.
+
+8. Restore the small demo seed before normal UI checks:
+
+```bash
+curl -X POST http://localhost:4000/api/leaderboard/seed \
+  -H "x-admin-api-key: <ADMIN_API_KEY>"
+```
+
+Expected outcome: Redis is back to the 10-player demo data used by the dashboard smoke flow.
+
+9. Test earning update:
 
 ```bash
 curl -X POST http://localhost:4000/api/earnings \
@@ -96,7 +122,7 @@ curl -X POST http://localhost:4000/api/earnings \
 
 Expected outcome: `success: true`, the updated score is returned, and later leaderboard reads reflect the change.
 
-7. Test weekly preview:
+10. Test weekly preview:
 
 ```bash
 curl http://localhost:4000/api/rewards/weekly-preview
@@ -104,7 +130,7 @@ curl http://localhost:4000/api/rewards/weekly-preview
 
 Expected outcome: `success: true`, with `totalWeeklyEarning`, `prizePool`, and reward preview rows.
 
-8. Test weekly distribution:
+11. Test weekly distribution:
 
 ```bash
 curl -X POST http://localhost:4000/api/rewards/distribute-weekly \

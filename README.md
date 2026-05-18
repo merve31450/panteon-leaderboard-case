@@ -9,7 +9,7 @@ Live URLs:
 
 Manual smoke testing steps are documented in [TESTING.md](./TESTING.md).
 
-The 10 seeded players in this repository are demo seed data only. They exist so the reviewer can run the app quickly. The intended production scenario is a game with 10M+ registered players and around 2M daily active users.
+The 10 seeded players in this repository are tiny demo seed data only. They exist so the reviewer can run the app quickly. The intended production scenario is a game with 10M+ registered players and around 2M daily active users. For larger local Redis ranking checks, use the separate large seed endpoint instead of loading millions of players by default.
 
 ## Tech Stack
 
@@ -122,6 +122,15 @@ curl -X POST http://localhost:4000/api/leaderboard/seed \
   -H "x-admin-api-key: change-me-for-production"
 ```
 
+The small seed endpoint creates only the 10 hand-written demo players. To demonstrate large-scale Redis ranking behavior without rendering or storing all players in the UI, seed generated demo players with the large seed endpoint:
+
+```bash
+curl -X POST "http://localhost:4000/api/leaderboard/seed-large?count=10000" \
+  -H "x-admin-api-key: change-me-for-production"
+```
+
+`count` defaults to `10000` and is capped at `100000` for local safety. The generated players use IDs such as `player-1` through `player-N`, varied countries, generated usernames, and varied scores. `player-6` still exists, and selected-player context can also be tested with players outside the top 100 such as `player-500`, `player-5000`, or `player-9999`.
+
 ## API Endpoints
 
 Health:
@@ -160,6 +169,7 @@ curl http://localhost:4000/api/leaderboard/top
 curl http://localhost:4000/api/leaderboard/player/player-6
 curl http://localhost:4000/api/leaderboard/redis/top
 curl http://localhost:4000/api/leaderboard/redis/player/player-6
+curl http://localhost:4000/api/leaderboard/redis/player/player-5000
 ```
 
 Submit an earning:
@@ -188,12 +198,18 @@ curl -X POST http://localhost:4000/api/rewards/distribute-weekly \
 The demo includes internal/admin-like endpoints for seeding Redis and running weekly reward distribution:
 
 - `POST /api/leaderboard/seed`
+- `POST /api/leaderboard/seed-large?count=10000`
 - `POST /api/rewards/distribute-weekly`
 
 In production these endpoints should not be publicly callable. Configure `ADMIN_API_KEY` on the server and send it with the `x-admin-api-key` request header:
 
 ```bash
 curl -X POST http://localhost:4000/api/leaderboard/seed \
+  -H "x-admin-api-key: change-me-for-production"
+```
+
+```bash
+curl -X POST "http://localhost:4000/api/leaderboard/seed-large?count=10000" \
   -H "x-admin-api-key: change-me-for-production"
 ```
 
@@ -313,6 +329,7 @@ It documents intended collections for `game_events`, `player_activity_logs`, `le
 | Redis real-time leaderboard operations | `weekly:leaderboard` Sorted Set |
 | Redis Sorted Set scalable design | `ZINCRBY`, `ZREVRANGE`, and `ZREVRANK` used |
 | 10 players are demo-only seed data | Documented and seeded through `/api/leaderboard/seed` |
+| Large demo Redis seed | `POST /api/leaderboard/seed-large?count=10000` generates up to 100000 demo players |
 | Target scale of 10M+ registered and 2M DAU | Documented in README and architecture |
 | Top 100 leaderboard behavior | Redis top endpoint reads up to 100 players |
 | Selected player context | Redis context endpoint returns selected player with nearby ranks |

@@ -29,6 +29,8 @@ Redis remains the ranking engine even when PostgreSQL and MongoDB are configured
 
 The React client is a thin dashboard over the stateless API. It calls the leaderboard, selected-player context, reward preview, and earning endpoints directly, then keeps only temporary view state such as filters, the selected player, form values, and the latest API responses in React state. It does not store leaderboard state permanently.
 
+The UI does not render every player in a large leaderboard. It renders the top slice returned by the API, usually the top 100, and a small selected-player context window around one requested player.
+
 The dashboard is organized around reusable React components:
 
 - `StatCard` for summary metrics.
@@ -54,6 +56,8 @@ This makes horizontal scaling straightforward:
 ## Redis Sorted Set Design
 
 Redis Sorted Sets are the core scalable leaderboard structure. Each player is stored as a member and the weekly earning score is stored as the sorted-set score.
+
+This structure is suitable for large leaderboard data because Redis maintains score ordering as writes happen. The API can update a player score with `ZINCRBY`, read the top players with `ZREVRANGE`, and find a single player's rank with `ZREVRANK` without sorting millions of rows inside the request path.
 
 Demo key:
 
@@ -110,6 +114,8 @@ The API uses descending rank order because higher weekly earning scores should r
 The top leaderboard endpoint reads the first 100 players from Redis using `ZREVRANGE`. For production, this gives a fast global or segmented leaderboard view without scanning all registered players.
 
 If the active leaderboard has fewer than 100 players, Redis returns only the available players. The current demo therefore returns the 10 seeded players after seeding.
+
+For larger smoke tests, `POST /api/leaderboard/seed-large?count=10000` generates demo players directly into Redis. It defaults to 10000 players and caps the count for local safety, so reviewers can demonstrate large sorted-set ranking behavior without seeding the production-scale 10M population.
 
 ## Selected Player Context
 

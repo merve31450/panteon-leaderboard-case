@@ -4,6 +4,9 @@ import {
   getPlayerLeaderboardContextFromRedis,
   getTopLeaderboard,
   getTopLeaderboardFromRedis,
+  DEFAULT_LARGE_SEED_COUNT,
+  MAX_LARGE_SEED_COUNT,
+  seedLargeLeaderboardToRedis,
   seedLeaderboardToRedis
 } from "./leaderboard.service";
 
@@ -52,6 +55,42 @@ export async function seedLeaderboardController(_req: Request, res: Response) {
     return res.status(500).json({
       success: false,
       message: "Failed to seed leaderboard"
+    });
+  }
+}
+
+export async function seedLargeLeaderboardController(
+  req: Request,
+  res: Response
+) {
+  const rawCount = req.query.count;
+  const count =
+    rawCount === undefined ? DEFAULT_LARGE_SEED_COUNT : Number(rawCount);
+
+  if (
+    !Number.isInteger(count) ||
+    count < 1 ||
+    count > MAX_LARGE_SEED_COUNT
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: `count must be an integer between 1 and ${MAX_LARGE_SEED_COUNT}`
+    });
+  }
+
+  try {
+    const result = await seedLargeLeaderboardToRedis(count);
+
+    return res.status(201).json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    console.error("Failed to seed large Redis leaderboard:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to seed large leaderboard"
     });
   }
 }
