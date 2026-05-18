@@ -225,6 +225,8 @@ curl https://panteon-leaderboard-case-3.onrender.com/api/rewards/weekly-preview
 
 `POST /api/rewards/distribute-weekly` calculates the current distribution, returns `totalWeeklyEarning`, `prizePool`, `distribution`, and `rewards`, then resets the weekly Redis leaderboard and prize pool. A Redis lock prevents overlapping distribution runs in this demo. In production, the same flow should persist settlement and reward payout rows in PostgreSQL before reset.
 
+The same distribution logic is also exposed as `runWeeklyRewardDistributionJob()` in `server/src/jobs/weeklyRewardJob.ts`. It does not start an automatic interval inside the app; it is intended to be triggered by an external scheduler such as Render Cron Job, GitHub Actions, or another trusted worker.
+
 ## Production Deployment Notes
 
 Render backend:

@@ -162,6 +162,8 @@ The weekly distribution/reset operation should:
 
 The demo endpoint `POST /api/rewards/distribute-weekly` performs the Redis-backed calculation, returns the distributed rewards, and resets `weekly:leaderboard` plus `weekly:prize-pool`. Production should persist reward transactions in PostgreSQL before resetting Redis so payouts are auditable and retryable.
 
+The backend also exposes `runWeeklyRewardDistributionJob()` from `server/src/jobs/weeklyRewardJob.ts`. This job module reuses the same service logic as `POST /api/rewards/distribute-weekly` and intentionally does not start an automatic interval inside the application process. In production it can be invoked by Render Cron Job, GitHub Actions, or another scheduler/worker.
+
 The seed and distribution endpoints are operational/admin actions, not public gameplay APIs. In production, `POST /api/leaderboard/seed` should be restricted to internal setup workflows, and `POST /api/rewards/distribute-weekly` should be internal or triggered by a trusted scheduler/worker with the admin API key. Public read endpoints and earning submission stay outside this admin guard.
 
 ## PostgreSQL Role
