@@ -70,6 +70,7 @@ button:disabled {
 }
 
 .summary-grid article,
+.scale-demo-card,
 .panel,
 .top-three article {
   border: 1px solid #dfe7e3;
@@ -96,6 +97,47 @@ small {
   color: #18211f;
   font-size: 28px;
   line-height: 1;
+}
+
+.scale-demo-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.9fr);
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 18px;
+  padding: 18px;
+}
+
+.scale-demo-card p:not(.eyebrow) {
+  margin-top: 8px;
+  color: #5d6f69;
+  line-height: 1.5;
+}
+
+.scale-demo-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.scale-demo-facts span {
+  border: 1px solid #cfe2db;
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: #f4faf7;
+  color: #1f6f5b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.scale-demo-note {
+  grid-column: 1 / -1;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #fff8e8;
+  color: #6f5215;
+  font-weight: 800;
 }
 
 .top-three {
@@ -334,6 +376,7 @@ select:focus {
   .page-header,
   .summary-grid,
   .top-three,
+  .scale-demo-card,
   .controls-panel,
   .content-grid,
   .reward-list {
@@ -342,6 +385,10 @@ select:focus {
 
   .page-header {
     align-items: stretch;
+  }
+
+  .scale-demo-facts {
+    justify-content: flex-start;
   }
 }
 
@@ -361,6 +408,7 @@ select:focus {
 
   .panel,
   .summary-grid article,
+  .scale-demo-card,
   .top-three article {
     padding: 16px;
   }

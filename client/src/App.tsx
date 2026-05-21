@@ -6,6 +6,7 @@ import {
   LeaderboardTable,
   NearbyPlayers,
   RewardPreview,
+  ScaleDemoCard,
   StatCard,
 } from './components'
 import { API_BASE_URL } from './config/api'
@@ -226,6 +227,11 @@ function App() {
           value={playerContext?.player ? `#${playerContext.player.rank}` : '-'}
         />
       </section>
+
+      <ScaleDemoCard
+        renderedCount={leaderboard.length}
+        selectedPlayerRank={playerContext?.player?.rank}
+      />
 
       {isLoading ? (
         <section className="panel">
