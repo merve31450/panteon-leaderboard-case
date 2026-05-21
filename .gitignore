@@ -10,3 +10,9 @@ client/.vite/
 *.env
 server/.env
 server/src/.env
+echo .env>> .gitignore
+echo *.env>> .gitignore
+echo server/.env>> .gitignore
+echo server/src/.env>> .gitignore
+echo server/.envtype>> .gitignore
+echo .gitignoregit>> .gitignore
