@@ -11,6 +11,19 @@ Manual smoke testing steps are documented in [TESTING.md](./TESTING.md).
 
 The 10 seeded players in this repository are tiny demo seed data only. They exist so the reviewer can run the app quickly. The intended production scenario is a game with 10M+ registered players and around 2M daily active users. For larger local Redis ranking checks, use the separate large seed endpoint instead of loading millions of players by default.
 
+## Submission Notes
+
+- Live frontend: https://panteon-leaderboard-case.vercel.app
+- Live backend API: https://panteon-leaderboard-case-3.onrender.com
+- The 10 included players are only small sample data for quick review.
+- `POST /api/leaderboard/seed-large?count=10000` generates large demo leaderboard data in Redis for scale-oriented smoke tests.
+- The architecture targets 10M+ registered players by using Redis Sorted Sets as the real-time leaderboard ranking engine.
+- PostgreSQL stores durable earning ledger rows, reward distributions, and weekly settlements.
+- MongoDB stores game events and player activity logs.
+- The backend is stateless; shared state lives in Redis, PostgreSQL, MongoDB, or external infrastructure.
+- Admin endpoints require `x-admin-api-key` when `ADMIN_API_KEY` is configured. No real admin key is documented or committed.
+- Weekly reward distribution can be invoked by a production scheduler through `runWeeklyRewardDistributionJob()` or the protected distribution endpoint.
+
 ## Tech Stack
 
 - Backend: Node.js, Express, TypeScript
@@ -113,6 +126,36 @@ Run the frontend:
 cd client
 npm install
 npm run dev
+```
+
+## Local Smoke Test Commands
+
+Use these after Redis/backend/frontend are running. If `ADMIN_API_KEY` is configured, replace `<ADMIN_API_KEY>` with the configured value; if it is not configured locally, omit the `x-admin-api-key` header.
+
+```bash
+curl http://localhost:4000/health
+curl http://localhost:4000/api/system/stack
+curl -X POST http://localhost:4000/api/leaderboard/seed \
+  -H "x-admin-api-key: <ADMIN_API_KEY>"
+curl -X POST "http://localhost:4000/api/leaderboard/seed-large?count=10000" \
+  -H "x-admin-api-key: <ADMIN_API_KEY>"
+curl "http://localhost:4000/api/leaderboard/redis/top?limit=100"
+curl http://localhost:4000/api/leaderboard/redis/player/player-5000
+curl http://localhost:4000/api/rewards/weekly-preview
+```
+
+## Production Smoke Test Commands
+
+These commands intentionally use placeholders only. Do not paste real secrets into documentation.
+
+```bash
+curl https://panteon-leaderboard-case-3.onrender.com/health
+curl https://panteon-leaderboard-case-3.onrender.com/api/system/stack
+curl "https://panteon-leaderboard-case-3.onrender.com/api/leaderboard/redis/top?limit=100"
+curl https://panteon-leaderboard-case-3.onrender.com/api/leaderboard/redis/player/player-6
+curl https://panteon-leaderboard-case-3.onrender.com/api/rewards/weekly-preview
+curl -X POST https://panteon-leaderboard-case-3.onrender.com/api/leaderboard/seed \
+  -H "x-admin-api-key: <ADMIN_API_KEY>"
 ```
 
 Seed Redis before testing Redis-backed endpoints:

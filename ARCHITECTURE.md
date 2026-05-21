@@ -4,6 +4,11 @@
 
 The Panteon Leaderboard Case is a full-stack prototype for a large-scale game leaderboard. The demo has 10 seeded players only so the app is easy to run locally, but the target production scenario is 10M+ registered players and around 2M daily active users.
 
+Live deployment:
+
+- Frontend: https://panteon-leaderboard-case.vercel.app
+- Backend API: https://panteon-leaderboard-case-3.onrender.com
+
 The production design separates hot leaderboard ranking from durable storage:
 
 ```text
@@ -24,6 +29,8 @@ React Client -> Node.js API -> Redis
 ```
 
 Redis remains the ranking engine even when PostgreSQL and MongoDB are configured. The databases add durability and analytics support, while Redis keeps rank updates and reads fast enough for the live leaderboard path.
+
+The 10 checked-in demo players are not a scale claim. They are small sample data for review. Large generated demo leaderboard data can be loaded with `POST /api/leaderboard/seed-large?count=10000`, which writes generated players directly into Redis Sorted Sets for local or staging ranking checks.
 
 ## Frontend Architecture
 
@@ -172,6 +179,8 @@ The backend also exposes `runWeeklyRewardDistributionJob()` from `server/src/job
 
 The seed and distribution endpoints are operational/admin actions, not public gameplay APIs. In production, `POST /api/leaderboard/seed` should be restricted to internal setup workflows, and `POST /api/rewards/distribute-weekly` should be internal or triggered by a trusted scheduler/worker with the admin API key. Public read endpoints and earning submission stay outside this admin guard.
 
+When `ADMIN_API_KEY` is configured, admin endpoints require the `x-admin-api-key` request header. When it is not configured, the guard is disabled for local/demo convenience. Production scheduler calls should use a secret configured in the hosting platform, not a value committed to the repository.
+
 ## PostgreSQL Role
 
 PostgreSQL should be the durable system of record for financial and settlement data:
@@ -262,6 +271,7 @@ Optional production environment variables:
 DATABASE_URL=
 MONGODB_URI=
 MONGODB_DB_NAME=panteon_leaderboard
+ADMIN_API_KEY=
 ```
 
 ## Current Prototype Limits

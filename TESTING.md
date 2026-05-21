@@ -4,6 +4,50 @@ This guide covers manual smoke tests for the local and deployed leaderboard app.
 
 The 10 seeded players are demo data only. The production design targets large-scale ranking with Redis Sorted Sets, where score updates, top leaderboard reads, and player rank lookups stay fast on hot leaderboard data.
 
+Use `POST /api/leaderboard/seed` for the 10-player sample dataset. Use `POST /api/leaderboard/seed-large?count=10000` when you want generated demo data that better exercises Redis Sorted Set ranking behavior. The large seed is still demo data; the architecture target is 10M+ registered players with Redis as the real-time ranking engine, PostgreSQL for earning ledger/reward distribution/weekly settlement records, MongoDB for game events and activity logs, and a stateless backend.
+
+## Quick Local Smoke Commands
+
+Run these after `docker compose up -d`, `npm run dev` in `server`, and `npm run dev` in `client`. If `ADMIN_API_KEY` is not configured locally, omit the `x-admin-api-key` lines.
+
+```bash
+curl http://localhost:4000/health
+curl http://localhost:4000/api/system/stack
+curl -X POST http://localhost:4000/api/leaderboard/seed \
+  -H "x-admin-api-key: <ADMIN_API_KEY>"
+curl -X POST "http://localhost:4000/api/leaderboard/seed-large?count=10000" \
+  -H "x-admin-api-key: <ADMIN_API_KEY>"
+curl "http://localhost:4000/api/leaderboard/redis/top?limit=100"
+curl http://localhost:4000/api/leaderboard/redis/player/player-5000
+curl http://localhost:4000/api/rewards/weekly-preview
+```
+
+## Quick Production Smoke Commands
+
+Live URLs:
+
+- Frontend: https://panteon-leaderboard-case.vercel.app
+- Backend API: https://panteon-leaderboard-case-3.onrender.com
+
+```bash
+curl https://panteon-leaderboard-case-3.onrender.com/health
+curl https://panteon-leaderboard-case-3.onrender.com/api/system/stack
+curl "https://panteon-leaderboard-case-3.onrender.com/api/leaderboard/redis/top?limit=100"
+curl https://panteon-leaderboard-case-3.onrender.com/api/leaderboard/redis/player/player-6
+curl https://panteon-leaderboard-case-3.onrender.com/api/rewards/weekly-preview
+```
+
+Protected production operations such as seeding and weekly distribution require `x-admin-api-key` when `ADMIN_API_KEY` is configured. Use a placeholder in docs and keep the real key only in the deployment provider:
+
+```bash
+curl -X POST https://panteon-leaderboard-case-3.onrender.com/api/leaderboard/seed \
+  -H "x-admin-api-key: <ADMIN_API_KEY>"
+curl -X POST https://panteon-leaderboard-case-3.onrender.com/api/rewards/distribute-weekly \
+  -H "x-admin-api-key: <ADMIN_API_KEY>"
+```
+
+Weekly reward distribution can also be triggered by a production scheduler, such as Render Cron Job, GitHub Actions, or another trusted worker, using the same service logic exposed by `runWeeklyRewardDistributionJob()`.
+
 ## Local Setup
 
 1. Start local infrastructure:
