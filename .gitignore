@@ -6,3 +6,7 @@ server/src/.env
 .DS_Store
 client/.vite/
 .vite/server/.envtype
+.env
+*.env
+server/.env
+server/src/.env
